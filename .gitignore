@@ -22,5 +22,6 @@ Thumbs.db
 
 # cron mirror state (hash of last successfully mirrored PAPER.md)
 .mirror_state.json
+.zotero_auth.json
 
 scripts/

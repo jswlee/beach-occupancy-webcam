@@ -51,7 +51,7 @@ ai-beach-carrying-capacity/
 │   │   ├── args.yaml, training_summary.txt, results.csv, merged_metrics.json
 │   └── requirements.txt
 ├── data/                        ← inference results used by the analysis
-│   ├── people_zones.csv         ← per-frame beach/water/other counts + ts_suspect flag
+│   ├── people_zones.csv         ← per-frame beach/water/other counts + ts_suspect / frozen_dup flags
 │   ├── mask_stats_clean.csv     ← deduped seg stats, all 21,639 frames
 │   ├── waterline_stats.csv      ← per-frame waterline y-position
 │   ├── detections.csv           ← all 284,325 person boxes

@@ -17,7 +17,7 @@ import os
 import re
 import sys
 
-DOC_ID = '1n3q6fQ4IkA6jE8ouTEbsKCloNAYlp7isZkFlG3a_xLA'
+DOC_ID = '1lcrVTE9vzur75GQRJU6fcssWiv3M6TE1J1V10WBGgpA'  # NEW mirror target (2026-11-08); old commented doc 1n3q6fQ4... is read-only, never mirror to it
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MD_PATH = os.path.join(REPO, 'PAPER.md')
 
@@ -267,7 +267,7 @@ def build_requests(blocks, repo, image_uris):
                 'range': {'startIndex': base + s, 'endIndex': base + e},
                 'textStyle': d, 'fields': ','.join(d.keys())}})
 
-    for kind, data in blocks:
+    for i, (kind, data) in enumerate(blocks):
         reqs = []
         if kind.startswith('h'):
             text = data
@@ -283,9 +283,15 @@ def build_requests(blocks, repo, image_uris):
         elif kind == 'para':
             plain, runs = render_inline(data)
             L = len(plain) + 1
-            reqs.append({'insertText': {'location': {'index': cursor}, 'text': plain + '\n'}})
+            # The blank line between paragraphs in the source markdown becomes
+            # a real empty paragraph here, so body paragraphs are visually
+            # separated. Skipped before tables: the empty paragraph that each
+            # table is inserted into already provides the gap (would double it).
+            extra = 0 if (i + 1 < len(blocks) and blocks[i + 1][0] == 'table') else 1
+            reqs.append({'insertText': {'location': {'index': cursor},
+                                        'text': plain + '\n' * (1 + extra)}})
             style_runs(cursor, runs, len(plain), include_nl=True)
-            cursor += L
+            cursor += L + extra
         elif kind == 'img':
             alt, src = data
             path = os.path.join(repo, src)
