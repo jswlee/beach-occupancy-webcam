@@ -96,6 +96,8 @@ python training/run_tiled_inference.py \
     --model <best.pt> --input-dir "D:/Kaanapali" \
     --output-dir <out_dir> --seg-mask --save-img --max-save-img 10 \
     --save-day-only --device cuda --conf 0.20   # → detections.csv + night.txt + 10 day panels
+python detection/eval_baselines.py            # pretrained yolo26n/s/m/l/x baseline eval
+                                              # → detection/results/baselines_v16prod/baseline_metrics.csv
 
 # --- Fusion
 python segmentation/count_people_zones.py \
