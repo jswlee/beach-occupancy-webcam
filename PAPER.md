@@ -1,6 +1,6 @@
 # Measuring Beach Use from a Fixed Webcam: Fused Semantic Segmentation and Person Detection at Kāʻanapali Beach, Maui
 
-**Draft: methodology and results. Working paper.**
+Draft: methodology and results. Working paper.
 
 ---
 
@@ -22,90 +22,100 @@ The objective of this work is to quantify continuous beach occupancy and crowdin
 
 
 
-## 2. Methods
+## 2. Data and Methods
 
-### 2.1 Study Area
+### 2.1 Data
 
-Kāʻanapali Beach lies on the leeward (west) coast of Maui, Hawaiʻi (roughly 20.92° N, 156.69° W). Roughly 5 km long, it is one of the island's most heavily used resort beaches. Heavy and growing use strains sensitive coastal resources: green sea turtles and Hawaiian monk seals use the nearby waters and shoreline, and a fringing reef fronts the central beach. Seasonal weather shifts when and how the beach can be used; the November–March wet season brings storm surges and swell-driven changes in beach width and water line that reshape the usable sand. The webcam is mounted at The Whaler resort condos on Kāʻanapali Beach near the middle of the beach and looks northwest along the shoreline toward Black Rock, covering roughly 150 m of beachfront. Weather covariates come from the Hawaiʻi Climate Data Portal (HCDP), station 0131 at the Lahaina Wastewater Treatment Plant (WTP; ~4 km inland, 244 m elevation), the nearest Hawaiʻi Mesonet weather station (Figures 0a and 0b show the study area and camera position).
+#### 2.1.1 Study Area
+
+Kāʻanapali Beach lies on the leeward (west) coast of Maui, Hawaiʻi (roughly 20.92° N, 156.69° W). At about 5 km long, it is one of the island's most heavily used resort beaches. Heavy and growing use strains sensitive coastal resources: green sea turtles and Hawaiian monk seals use the nearby waters and shoreline, and a fringing reef fronts the central beach. Seasonal weather shifts when and how the beach can be used; the November–March wet season brings storm surges and swell-driven changes in beach width and water line that reshape the usable sand. The webcam is mounted at The Whaler resort condos on Kāʻanapali Beach near the middle of the beach and looks northwest along the shoreline toward Black Rock, covering roughly 150 m of beachfront. Weather covariates come from the Hawaiʻi Climate Data Portal (HCDP), station 0131 at the Lahaina Wastewater Treatment Plant (WTP; ~4 km inland, 244 m elevation), the nearest Hawaiʻi Mesonet weather station (Figures 0a and 0b show the study area and camera position).
 
 ![Figure 0a: Study area, location of Kāʻanapali Beach on Maui (PLACEHOLDER MAP).](figures/study_area_map_maui.png)
 
 ![Figure 0b: Site detail, camera position, camera field of view (PLACEHOLDER MAP).](figures/study_area_map_site.png)
 
-### 2.2 Coastal Camera Imagery
+#### 2.1.2 Coastal Camera Imagery
 
-The source is the “Maui Live” webcam operated by WhalerCondo.net, overlooking Kāʻanapali Beach (Lahaina, Maui, Hawaiʻi). Frames are 1912 × 1080 px JPEGs captured every 15 minutes and named by date and time of capture, with **UTC** timestamps (local time = UTC − 10 h; Hawaiʻi has no DST). The camera view shifted once, at the end of January 2026 (Jan 27, 2026). The camera's key properties are listed below.
+The source is the “Maui Live” webcam operated by WhalerCondo.net, overlooking Kāʻanapali Beach (Lahaina, Maui, Hawaiʻi). Frames are 1912 × 1080 px JPEGs captured every 15 minutes. The camera view shifted once, at the end of January 2026 (Jan 27, 2026). The camera's key properties are listed below.
 
 | Property | Value |
 |---|---|
-| Frames | 21,639 |
+| Daytime Frames | 11,788 |
 | Capture window (UTC) | 2026-01-05 20:56:54 → 2026-10-20 06:49:41 |
 | Capture window (HST) | 2026-01-05 10:56 → 2026-10-19 20:49 |
-| Night frames excluded | 9,604 (44.4%) |
-| Day frames analyzed | **11,788** (55.6% of frames pass the day gate; 247 frozen-stream repeats dropped) |
 
 Because each frame is a single 15-minute snapshot, the record undercounts people who are present only between captures and overcounts people who remain in view across several frames; the occupancy figures therefore describe how many people are present at a sampling instant, not how many people visited the beach.
 
-### 2.3 Image preparation
+#### 2.1.3 Image preparation
 
-The 21,639 raw captures pass three preparation steps, which reduce them to the **11,788 analyzed day frames** used throughout the paper. First, night is separated: mean Hue–Saturation–Value (HSV) saturation identifies the 9,604 night frames, because infrared (IR) night frames are entirely grayscale (saturation ≈ 0) while even dark storm frames keep saturation ≥ 26, so a threshold of 5.0 cleanly separates them where a brightness threshold would fail. Second, the analyzable scene is bounded by two region-of-interest (ROI) polygons (one pre-move, one post-move), and a small exclusion triangle masks a persistently misclassified palm-canopy patch in post-move frames. Third, the archiver occasionally saved the same image under successive timestamps when the livestream froze; these frozen repeats are detected as runs of two or more consecutive frames whose segmentation pixel counts *and* people counts are all identical, a signature that does not occur by chance. Every frame in such a run is dropped before analysis, including the first (the freeze may have begun before it); all 247 such frames, spanning 14 freeze events, are removed, the longest run lasting 37 consecutive frames. This also resolves what initially looked like a timestamp anomaly: the “bright frame at a computed night hour” cases all fall inside frozen runs: a stuck daytime image kept accumulating new timestamps.
+The raw captures pass three preparation steps, which reduce them to the 11,788 analyzed day frames used throughout the paper. First, night frames are removed: mean Hue–Saturation–Value (HSV) saturation cleanly identifies them, because infrared (IR) night frames are entirely grayscale (saturation ≈ 0) while even dark storm frames keep saturation ≥ 26, so a threshold of 5.0 separates them where a brightness threshold would fail. Second, the analyzable scene is bounded by two region-of-interest (ROI) polygons (one pre-move, one post-move), and a small exclusion triangle masks a persistently misclassified palm-canopy patch in post-move frames. Third, the livestream went down repeatedly during the record, in two ways. Most often the stream simply produced no frames at all, which leaves visible gaps of hours to days in the occupancy record (longest roughly two weeks). Less often, the stream froze on a single image and the archiver kept stamping that one image under successive timestamps; these stuck-image repeats are detected as runs of two or more consecutive frames whose segmentation pixel counts and people counts are all identical, a signature that does not occur by chance. Every frame in such a run is dropped before analysis, including the first (the freeze may have begun before it); 247 such frames, spanning 14 outages, are removed. This also resolves what initially looked like a timestamp anomaly: the “bright frame at a computed night hour” cases all fall inside stuck-image runs, a frozen daytime frame accumulating new timestamps.
 
-### 2.4 Model Training and Evaluation Data
+#### 2.1.4 Model Training and Evaluation Data
 
-The two models are trained and evaluated on two labelled sets. The segmentation label set contains 175 frames (121 train, 35 validation, 19 test), all captured during a single week, November 15–23, 2025, across four classes: background, palm canopy, beach, and water. During preprocessing, pixels outside the ROI polygon are forced to background. The detection label set contains 1,375 images (969 train, 272 validation, 134 test) carrying 16,599 person bounding boxes, about twelve per image. The webcam portion spans September 2, 2025 through March 23, 2026; the remaining images come from the TinyPerson dataset (Yu et al., 2019) to add scene diversity.
+The two models are trained and evaluated on two labeled sets. The segmentation label set contains 175 frames (121 train, 35 validation, 19 test), all captured during a single week, November 15–23, 2025, across four classes: background, palm canopy, beach, and water. During preprocessing, pixels outside the ROI polygon are forced to background. The detection label set contains 1,375 images (969 train, 272 validation, 134 test) carrying 16,599 person bounding boxes, about twelve per image. The webcam portion spans September 2, 2025 through March 23, 2026; the remaining images come from the TinyPerson dataset (Yu et al., 2019) to add scene diversity.
 
-### 2.5 External data
+"""I need to mention how I annotated in this paper: 1st, I boxed in 
+
+#### 2.1.5 External data
 
 Two external datasets provide the weather and advisory context used in the analysis: the HCDP weather-station record and the DOH Brown Water Advisory log.
 
+Weather comes from the Hawaiʻi Climate Data Portal (HCDP), the public archive of the Hawaiʻi Mesonet, a state-wide network of automated weather stations. We use station 0131 at the Lahaina Wastewater Treatment Plant (20.8907, −156.6549, 244 m elevation, roughly 4 km inland of the camera) because it is the closest Hawaiʻi Mesonet station to the study site, and because it reports every variable the analysis needs at a resolution fine enough to join against 15-minute frames: air temperature and relative humidity (each from two redundant sensors), wind speed, 5-minute rainfall totals, and solar radiation measured by an on-site pyranometer as incoming shortwave radiation (W/m²; the station's PAR channels are not populated). The station record covers the entire image window at 5-minute intervals. The 4 km inland separation and 244 m elevation difference mean the station is warmer and slightly drier than the immediate shoreline; we treat its values as covariates that co-vary with beach weather rather than exact on-beach measurements.
+
 | Source | Content | Coverage | Resolution |
 |---|---|---|---|
-| HCDP station 0131 (Lahaina WTP; 20.8907, −156.6549) | air temp (2 sensors), relative humidity (RH; 2 sensors), wind speed, 5-min rainfall, incoming shortwave & net radiation | 2025-12-31 → 2026-10-21 | 5 min |
+| HCDP station 0131 (Lahaina WTP; 20.8907, −156.6549) | air temp (2 sensors), relative humidity (RH; 2 sensors), wind speed, 5-min rainfall, incoming shortwave radiation | 2025-12-31 → 2026-10-21 | 5 min |
 | Hawaiʻi Department of Health (DOH), Clean Water Branch | Brown Water / beach advisories (issuance–cancellation) | full archive; 2026 used here | events |
 
-The HCDP pull covers the full frame window. Solar exposure uses the station's shortwave pyranometer (incoming shortwave radiation, W/m²), with net radiation as a secondary measure; its PAR channels are not populated.
+Advisory history comes from the Hawaiʻi Department of Health Clean Water Branch, the agency that issues Brown Water Advisories warning the public that storm runoff has made coastal water unsafe. It is the only official source of brown-water advisories for Hawaiʻi: advisories are issued and later cancelled through the same feed, so the log yields exact start and end times for every advisory that touched the Maui coast, including the island-wide events that covered the camera view.
 
-### 2.6 Semantic segmentation
+### 2.2 Model training and analysis
 
-The segmentation model is a pre-trained neural network (SegFormer-B2, Xie et al., 2021) that we fine-tuned to assign every pixel in each frame to one of four land-cover classes: beach, water, background, or the overhanging palm canopy. Because it labels every pixel at once, it produces a complete land-cover map of the whole beach with no uncovered gaps, a key advantage over any method that only reports where people are. After fine-tuning, its predictions agreed with the hand-labelled ground truth to near-perfect accuracy (mean Intersection-over-Union ≈ 0.992). The exact training settings (learning rate, optimizer, and number of training rounds) are fixed and unchanged for every run.
+#### 2.2.1 Semantic segmentation
 
-We used this pixel-labeling approach rather than the earlier person-detector-based method because it covers every pixel and therefore has no gaps, whereas the detector-based method left small uncovered regions that had to be filled in by an error-prone fallback. On the 19-image test set, comparing each full-frame prediction against the hand-labelled ground truth, with uncovered pixels counted as errors, the segmentation approach was clearly the better choice:
-| Model | ROI uncovered | Mean pixel IoU |
-|---|---|---|
-| YOLO26m-seg @960 | 0.6% | 0.908 |
-| YOLO26l-seg @960 | 14.3% | 0.820 |
-| **SegFormer-B2 @512** | **0%** (dense output) | **≈0.992 mIoU (val)** |
+The segmentation model is a pre-trained neural network (SegFormer-B2, Xie et al., 2021) that we fine-tuned to assign every pixel in each frame to one of four land-cover classes: beach, water, background, or the overhanging palm canopy. Because it labels every pixel at once, it produces a complete land-cover map of the whole beach with no uncovered gaps, a key advantage over any method that only reports where people are. After fine-tuning, its predictions agreed with the hand-labeled ground truth to near-perfect accuracy, as measured by Intersection-over-Union (IoU): the fraction of the combined predicted-and-true region that the two agree on, ranging from 0 for no overlap to 1 for a perfect match (mean IoU ≈ 0.992). 
 
 For each new frame the pipeline first applies the same night gate and the same analysis-region mask used everywhere else (the mask also excludes a small, persistently misclassified palm-canopy patch), then runs the segmentation model and reads out, for every pixel inside the analysis region, which land-cover class it belongs to. This yields a per-frame count of beach, water, and background pixels and the land-cover map later used to place each detected person (Figure 1 shows the masked frame and its land-cover class map for one representative frame).
 ![Figure 1: Example segmentation output, masked frame, class map (beach/water/background), and the exclusion triangle.](figures/segmentation_example.jpg)
 
-### 2.7 Person detection
+#### 2.2.2 Person detection
 
-Person detections come from an object detector that draws a bounding box around each visible person. Because the camera sits high and people, especially those far down the beach, appear very small, each image is split into three overlapping strips along the beach, where people are visible, and the detector is run on each strip separately; detections from the overlapping strips are then combined so each person is counted once. The detector is a YOLO26 'large' model with an extra high-resolution detection layer added specifically to catch very small objects (median person box ≈ 13 px, with 47% under 12 px; Figure 2). The same night gate and analysis-region mask are applied as for the segmentation.
+Person detections come from an object detector that draws a bounding box around each visible person. Each image is cut into three overlapping horizontal strips covering the lower part of the frame, and the detector is run on each strip separately with boxes from the overlapping strips merged so each person is counted once. Tiling serves two purposes. First, it improves recall on the tiny people far down the beach: running a strip through the detector at full input resolution effectively zooms in, so a person who occupies only a dozen pixels in the full frame becomes large enough to find. Second, it skips the top of the frame entirely: that region holds only ocean, sky, and a sliver of distant beach where people are too small to identify with any confidence, so detecting there would only add false positives. The detector is a YOLO26 'large' model with an added P2 detection head, a high-resolution layer that makes predictions at stride 4 instead of the standard minimum stride 8, specifically to catch very small objects (median person box ≈ 13 px, with 47% under 12 px; Figure 2). The same night gate and analysis-region mask are applied as for the segmentation.
 
 ![Figure 2: Person-annotation size distribution in the tiled training set (equivalent square side). Nearly half of all boxes are under 12 px, motivating the P2 head.](figures/annotation_sizes.png)
 
-We trained the detector on the 1,375 labelled images and stopped automatically once its performance stopped improving; the full training recipe (batch size, number of rounds, learning rate, and the image-augmentation settings) is fixed and unchanged for every run. What matters for interpretation is its accuracy on images it had never seen: on the held-out test set (134 images containing 1,695 people), it found about 66% of the people present (recall) and about 71% of its boxes were correct (precision), roughly one person in three was missed and one box in four was spurious.
+We trained the detector on the 1,375 labeled images for a max of 300 epochs and stopped automatically at epoch 235. As is standard in Ultralytics training, the checkpoint kept is the one with the highest validation mAP50-95: mean Average Precision, the area under the precision-recall curve, averaged over ten box-overlap requirements from lenient (50% overlap) to strict (95%). That best checkpoint occurred at epoch 145 (thus, a patience of 90 epochs). What matters for interpretation is its accuracy on images it had never seen, reported here at the operating confidence threshold of 0.20. On the held-out test set (134 images containing 1,695 people), it found about 66% of the people present (recall, the fraction of real people recovered) and about 71% of the boxes it emitted were correct (precision, the fraction of detections that actually contain a person): roughly one person in three was missed and one box in four was spurious.
 
-To quantify what the beach-specific training data buys, we ran the identical tiled evaluation on off-the-shelf YOLO26 models of every size, using their pretrained COCO weights and scoring only their person detections. The result is unambiguous: pretrained detectors are precise about the people they do find, but they miss roughly two out of three beachgoers. Even the largest pretrained model (yolo26x, ~57 million parameters) recovers only one third of the people in the test images, because a person that occupies a dozen pixels simply does not look like a COCO "person" to a model that has never seen one. Fine-tuning on beach imagery doubles recall at the same operating point and roughly doubles average precision (the full comparison is in the table below).
+To quantify how the beach-specific training data contributes to the test results, we ran the identical tiled evaluation on off-the-shelf YOLO26 models of every size, using their pretrained COCO weights and scoring only their person detections. The result is unambiguous: the pretrained detectors' precision is high only because they emit few boxes and most of those are correct; the metric hides the real failure, which is that they miss roughly two out of three beachgoers. Their AP@50 (average precision when a box counts as correct if it overlaps a true person by at least half) is correspondingly poor, below 0.30 at every model size. Even the largest pretrained model (yolo26x, 59.0 million parameters, more than twenty times the size of the smallest) recovers only one third of the people in the test images, because a person that occupies a dozen pixels simply does not look like a COCO "person" to a model that has never seen one. Fine-tuning on beach imagery doubles recall at the same operating point and roughly doubles average precision (the full comparison is in the table below).
 
-| Model | Weights | Precision | Recall | F1 | AP@50 |
-|---|---|---|---|---|---|
-| yolo26n | COCO pretrained | 0.771 | 0.197 | 0.313 | 0.178 |
-| yolo26s | COCO pretrained | 0.765 | 0.275 | 0.405 | 0.247 |
-| yolo26m | COCO pretrained | 0.744 | 0.309 | 0.436 | 0.269 |
-| yolo26l | COCO pretrained | 0.746 | 0.311 | 0.439 | 0.275 |
-| yolo26x | COCO pretrained | 0.747 | 0.331 | 0.458 | 0.296 |
-| **yolo26l-P2 (ours)** | **fine-tuned on beach tiles** | **0.698** | **0.656** | **0.677** | **0.593** |
+| Model | Params | Weights | Precision | Recall | F1 | AP@50 |
+|---|---|---|---|---|---|---|
+| yolo26n | 2.6M | COCO pretrained | 0.771 | 0.197 | 0.313 | 0.178 |
+| yolo26s | 10.0M | COCO pretrained | 0.765 | 0.275 | 0.405 | 0.247 |
+| yolo26m | 21.9M | COCO pretrained | 0.744 | 0.309 | 0.436 | 0.269 |
+| yolo26l | 26.3M | COCO pretrained | 0.746 | 0.311 | 0.439 | 0.275 |
+| yolo26x | 59.0M | COCO pretrained | 0.747 | 0.331 | 0.458 | 0.296 |
+| yolo26l-P2 (ours) | 25.7M | fine-tuned on beach tiles | 0.698 | 0.656 | 0.677 | 0.593 |
 
 The baseline comparison was run on the current test-set export (1,679 labeled people; 16 fewer than the 1,695 in the original evaluation export, which accounts for the trivial difference between the 0.698/0.656 figures above and the 0.710/0.656 headline numbers). The pattern is the scientifically interesting part: precision stays roughly constant across pretrained sizes because the false positives are few either way, while recall climbs with model size and then doubles again with fine-tuning. Bigger generic models cannot close the gap; only domain data does.
 
-In the production run the detector is applied to the three strips, and any duplicate boxes from overlapping strips are merged so each person is counted once. Each detection carries a confidence score, the model's estimated probability that its box contains a person (a value from 0 to 1); following Ultralytics YOLO convention, a box is kept only when this score passes the detection-confidence threshold (Ultralytics' default is 0.25), which is set to 0.20 here for a more recall-oriented operating point. Figure 3 shows example detections from one frame, each person box coloured by the zone (beach or water) it was assigned from the segmentation map. It is fed exactly the same masked images as the segmentation model, so the two outputs are based on identical input. Every detection is saved with its image name, confidence, and bounding-box coordinates.
+A second comparison isolates the contribution of the P2 head itself, using a dedicated ablation pair trained on the same data with identical hyperparameters and differing only in detection head. The two runs were evaluated identically to each other (on the earlier 1,695-person test export):
+
+| Head | Precision | Recall | F1 | AP@50 |
+|---|---|---|---|---|
+| standard (P3+) | 0.659 | 0.607 | 0.632 | 0.531 |
+| P2 (stride-4) | 0.697 | 0.604 | 0.647 | 0.541 |
+
+The head contributes a modest gain of about 1.5 F1 points, and it comes almost entirely from precision: the stride-4 head produces fewer false positives at equal recall. Architecture and data therefore contribute at different scales. Fine-tuning on beach imagery roughly doubles recall and is the dominant effect; the P2 head adds a smaller precision-oriented improvement on top, and we adopt it as the detector used for the full-corpus analysis on that basis.
+
+One caveat on comparability: the ablation pair and the checkpoint used for the corpus analysis are not the same training run. Both ablation runs used a fixed schedule of 150 epochs with early stopping disabled, an explicit AdamW optimizer, and a 3-epoch warmup, and were trained on a remote GPU node. The model that processed the January to October 2026 image stream was trained with a 300-epoch budget and patience of 90 (it stopped at epoch 235 with the best checkpoint at epoch 145), a 30-epoch warmup, an auto-selected optimizer, and a stronger augmentation stack that additionally included RandAugment and random erasing. The schedules and augmentation extras differ between the configurations, so the ablation F1 values should be read as head-to-head within the pair rather than against the corpus model's numbers in the first table.
+
+For the full-corpus inference run the detector is applied to the three strips, and any duplicate boxes from overlapping strips are merged so each person is counted once. Each detection carries a confidence score, the model's estimated probability that its box contains a person (a value from 0 to 1). Following Ultralytics YOLO convention, a box is kept only when this score passes the detection-confidence threshold (Ultralytics' default is 0.25), which is set to 0.20 here for a more recall-oriented operating point. Figure 3 shows example detections from one frame, each person box coloured by the zone (beach or water) it was assigned from the segmentation map. It is fed exactly the same masked images as the segmentation model, so the two outputs are based on identical input. Every detection is saved with its image name, confidence, and bounding-box coordinates.
 ![Figure 3: Example detection output on a masked frame, merged tiled person boxes on beach and waterline.](figures/detection_example.jpg)
 
-### 2.8 Zone assignment
+#### 2.2.3 Zone assignment
 
-Each box is assigned a zone by the segmentation class at its **foot point**, the bottom-center pixel of the box, i.e. where the person physically stands. The zone assigned to each person follows the rule in the table below.
+Each box is assigned a zone by the segmentation class at its foot point, the bottom-center pixel of the box, i.e. where the person physically stands. The zone assigned to each person follows the rule in the table below.
 | Land cover at the person's feet | Zone counted |
 |---|---|
 | Beach (class 2) | On the beach |
@@ -114,7 +124,7 @@ Each box is assigned a zone by the segmentation class at its **foot point**, the
 
 The fused output carries one row per analyzed (non-night) frame: counts per zone, totals, and parsed UTC/local timestamps.
 
-### 2.9 Derived metrics
+#### 2.2.4 Derived metrics
 
 Three derived metrics support the analysis. Beach area per capita is the beach-class pixel area divided by the number of beach-zone people; it is reported primarily in image units (px² per person), which is exact, while absolute square meters use an anchored effective scale of 0.0138 m²/px derived from three hand-measured map polygons matched to quantiles of segmented beach pixel area (Section 3.4 and Limitations). Occupancy curves are the per-frame, hourly, and daily aggregates of the beach, water, and other counts. The weather response joins each frame to the nearest 5-minute HCDP observation within ±10 minutes and bins occupancy against temperature, solar radiation, humidity, wind, and rain.
 
@@ -122,18 +132,17 @@ Three derived metrics support the analysis. Beach area per capita is the beach-c
 
 ### 3.1 Pipeline output at scale
 
-Running the pipeline over the full record yields the summary below: 11,788 analyzed day frames produced 277,890 analyzed person detections, split 58.7% beach, 34.9% water, and 6.4% other, averaging 23.6 people per frame.
+Running the pipeline over the full record yields the summary below; counts are reported as instantaneous occupancy (people present at each 15-minute sampling instant) rather than visitor throughput.
 
 | Quantity | Value |
 |---|---|
-| Day frames analyzed | 11,788 (247 frozen-stream frames dropped) |
+| Day frames analyzed | 11,788 (247 stuck-image frames dropped) |
 | Person detections (confidence ≥ 0.20) | 277,890 analyzed (284,325 boxes in the raw detection table) |
 | Mean / median / max people per frame | 23.6 / 20 / 118 |
 | Frames with zero detections | 505 (4.3%) |
 | Zone split: beach / water / other | 58.7% / 34.9% / 6.4% |
 | Segmented beach area (mean % of ROI) | 30.7% (median 30.2; range 6.4–51.1) |
 | Segmented water area (mean % of ROI) | 69.0% (median 69.4; range 48.5–93.2) |
-| Inference throughput (GPU) | ~10.2 frames/s (detection incl. tiling + non-maximum suppression) |
 
 Low beach-area outliers correspond to storm-surge days (mid-March and early October events), where visible sand shrinks toward ~6%. Figure 4 shows the distribution of detection confidences across all 284,325 raw boxes at the 0.20 threshold, and Figure 5 shows the distribution of total people per frame across the 11,788 analyzed day frames (median 20, max 118).
 ![Figure 4: Detection-confidence distribution over all 284k boxes at a 0.20 detection threshold.](figures/det_conf_hist.png)
@@ -148,20 +157,19 @@ Averaging occupancy by local hour shows a midday peak: total people peak near 13
 
 ![Figure 7: Mean people per frame by day × local hour. The bright midday band and the February occupancy maximum are both visible; storm days appear as dark stripes.](figures/occupancy_heatmap.png)
 
-![Figure 8: Diurnal occupancy profile by zone (frozen-stream frames dropped).](figures/diurnal_profile.png)
+![Figure 8: Diurnal occupancy profile by zone (stuck-image frames dropped).](figures/diurnal_profile.png)
 
 ### 3.3 Temperature-conditioned usage
 
 All 11,788 day frames join to 5-min HCDP observations (±10 min nearest). Air temperature at Lahaina WTP ranged 16.6–32.2 °C. Correlations with per-frame counts (n = 11,788):
 | Covariate | beach | water | total |
 |---|---|---|---|
-| Incoming solar radiation | +0.50 | +0.53 | **+0.59** |
-| Net radiation | +0.49 | +0.52 | +0.58 |
-| Air temperature | +0.26 | **+0.50** | +0.42 |
-| Relative humidity | −0.35 | −0.37 | **−0.42** |
+| Incoming solar radiation | +0.50 | +0.53 | +0.59 |
+| Air temperature | +0.26 | +0.50 | +0.42 |
+| Relative humidity | −0.35 | −0.37 | −0.42 |
 | Wind speed | −0.07 | −0.03 | −0.06 |
 
-Rainfall has the strongest suppressive effect of any covariate. 280 day frames (2.4%) coincide with measurable rain (>0.05 mm per 5 min). Their mean occupancy is **4.8 people vs 24.0 on dry frames, an 80% reduction** (beach −84%, water −76%). The suppression is asymmetric across zones: beach counts collapse to ~1/6 of their dry mean (14.1 → 2.3 people/frame) while water counts fall only to ~1/4 (8.4 → 2.0), so the water:beach ratio rises from 0.59 on dry frames to 0.89 in the rain: the die-hards who show up during rain preferentially go into the water rather than sit on the sand. Within rainy frames, heavier rain suppresses further only weakly (r(rain intensity, total) ≈ −0.17): any detectable rain already empties the beach. The temperature association persists in rain (r = +0.38 within rainy frames), while humidity and wind are negative (RH −0.40, wind −0.25). Binned means show water use rising monotonically from ≈1 person at 18–19 °C to ≈17 at 29–32 °C, while beach occupancy saturates in the mid-20s and declines slightly at the hottest bins:
+Rainfall has the strongest suppressive effect of any covariate. 280 day frames (2.4%) coincide with measurable rain (>0.05 mm per 5 min). Their mean occupancy is 4.8 people vs 24.0 on dry frames, an 80% reduction (beach −84%, water −76%). The suppression is asymmetric across zones: beach counts collapse to ~1/6 of their dry mean (14.1 → 2.3 people/frame) while water counts fall only to ~1/4 (8.4 → 2.0), so the water:beach ratio rises from 0.59 on dry frames to 0.89 in the rain: the die-hards who show up during rain preferentially go into the water rather than sit on the sand. Within rainy frames, heavier rain suppresses further only weakly (r(rain intensity, total) ≈ −0.17): any detectable rain already empties the beach. The temperature association persists in rain (r = +0.38 within rainy frames), while humidity and wind are negative (RH −0.40, wind −0.25). Binned means show water use rising monotonically from ≈1 person at 18–19 °C to ≈17 at 29–32 °C, while beach occupancy saturates in the mid-20s and declines slightly at the hottest bins:
 
 | Air temperature (°C) | beach | water | total |
 |---|---|---|---|
@@ -181,9 +189,9 @@ Interpretation: at this site, *temperature primarily drives water occupancy*; be
 
 ### 3.4 Beach area per capita
 
-Mean visible beach area is ≈193 k px (≈30.7% of the ~647 k-px ROI). Converting to real area is approximated with an **anchored effective scale**:
+Mean visible beach area is ≈193 k px (≈30.7% of the ~647 k-px ROI). Converting to real area is approximated with an anchored effective scale:
 
-three hand-measured Google Maps polygons of the visible sand at high / mid / low waterlines (1,779 / 2,820 / 3,387 m²) were matched to the p10 / p50 / p90 quantiles of the segmented beach pixel area, giving per-anchor scales 0.0142 / 0.0148 / 0.0129 m²/px; pooled **k = 0.0138 m²/px** (±~7% spread across anchors, which also absorbs perspective foreshortening on average). This yields mean visible beach ≈**2,670 m²** and a crowding distribution of **median ≈200 m²/person**, p10 ≈85 on crowded frames, p90 ≈1,000 on empty ones. The image-space metric (px²/person) remains calibration-free. Figure 12 shows the distribution and daily median of beach area per capita over the record, and Figure 13 tracks the visible sand fraction (percent of the analysis region) over time, with its seasonal and storm-driven contraction.
+three hand-measured Google Maps polygons of the visible sand at high / mid / low waterlines (1,779 / 2,820 / 3,387 m²) were matched to the p10 / p50 / p90 quantiles of the segmented beach pixel area, giving per-anchor scales 0.0142 / 0.0148 / 0.0129 m²/px; pooled k = 0.0138 m²/px (±~7% spread across anchors, which also absorbs perspective foreshortening on average). This yields mean visible beach ≈2,670 m² and a crowding distribution of median ≈200 m²/person, p10 ≈85 on crowded frames, p90 ≈1,000 on empty ones. The image-space metric (px²/person) remains calibration-free. Figure 12 shows the distribution and daily median of beach area per capita over the record, and Figure 13 tracks the visible sand fraction (percent of the analysis region) over time, with its seasonal and storm-driven contraction.
 
 ![Figure 12: Beach area per capita, distribution and daily median over the record.](figures/beach_area_per_person.png)
 
@@ -191,9 +199,9 @@ three hand-measured Google Maps polygons of the visible sand at high / mid / low
 
 ### 3.5 Occupancy during Brown Water Advisories
 
-Hawaii DOH Clean Water Branch issues Brown Water Advisories (BWA) when storm runoff renders coastal water unsafe. In 2026, two **island-wide** Maui advisories covered Kāʻanapali: Mar 16–Apr 2 and Aug 15–24 (28 advisory days); the year's other named stretches (Hanakaoʻo, Wahikuli, Lahaina, Kihei, north shore) lie outside the camera view.
+Hawaii DOH Clean Water Branch issues Brown Water Advisories (BWA) when storm runoff renders coastal water unsafe. In 2026, two island-wide Maui advisories covered Kāʻanapali: Mar 16–Apr 2 and Aug 15–24 (28 advisory days); the year's other named stretches (Hanakaoʻo, Wahikuli, Lahaina, Kihei, north shore) lie outside the camera view.
 
-Water occupancy is compared at the **day** level (15-min frames are heavily autocorrelated) against non-advisory days in the **same calendar month**, as a ratio with a day-level bootstrap 95% confidence interval (CI; days contributing <10 frames are dropped). Result: **no detectable deterrence**: mean water occupancy on BWA days was 7.0 people/frame vs 7.5 on same-month baseline days (30 vs 56 days), ratio **0.94 [0.74–1.18]**. Formal tests agree: Mann–Whitney U on day-level means gives p = 0.97, and a 20,000-draw permutation test on the ratio gives p = 0.64, far from significance at α = 0.05.
+Water occupancy is compared at the day level (15-min frames are heavily autocorrelated) against non-advisory days in the same calendar month, as a ratio with a day-level bootstrap 95% confidence interval (CI; days contributing <10 frames are dropped). Result: no detectable deterrence: mean water occupancy on BWA days was 7.0 people/frame vs 7.5 on same-month baseline days (30 vs 56 days), ratio 0.94 [0.74–1.18]. Formal tests agree: Mann–Whitney U on day-level means gives p = 0.97, and a 20,000-draw permutation test on the ratio gives p = 0.64, far from significance at α = 0.05.
 
 In plain terms, each p-value answers the question: *if advisory days were actually no different from ordinary days in the same months, how often would random chance produce a gap at least this big?* The Mann–Whitney test answers it for the rank ordering of the day-level means (p = 0.97, a split this even or more extreme happens essentially always by chance); the permutation test answers it by reshuffling the "advisory" label across all 86 days 20,000 times and recounting the ratio each time (the observed 0.94 is exceeded in extremity 64% of the time). Both sit far above the conventional 0.05 cutoff, so the data contain no detectable deterrence signal, though with only 30 advisory days the tests also cannot rule out a small effect. Per advisory:
 
@@ -203,7 +211,7 @@ Mar–Apr 0.88, Aug 1.05 (Figure 14). Visitors kept entering the water during po
 
 ## 4. Discussion
 
-The system works because the hard problems were simplified honestly. Night filtering exploits the IR camera's exact zero-saturation signature rather than brightness thresholds that discard storm frames. Segmentation is dense by construction, eliminating the coverage-hole failure mode that made the earlier YOLO instance pipeline untrustworthy for area statistics. Both models consume identical masked inputs, so the fusion step's only assumption is the foot-point heuristic.
+The system works because the hard problems were simplified honestly. Night filtering exploits the IR camera's exact zero-saturation signature rather than brightness thresholds that discard storm frames. Segmentation is dense by construction, so every pixel in the analysis region receives a land-cover label and area statistics carry no coverage gaps. Both models consume identical masked inputs, so the fusion step's only assumption is the foot-point heuristic.
 
 Detection accuracy is the binding constraint. At a detection confidence of 0.20, the merged test evaluation gives precision 0.71 / recall 0.66: counts are useful for relative analytics and time series but carry multiplicative error: roughly one in three people missed and one in four boxes spurious. For trend analysis this is acceptable; for absolute occupancy claims it argues for a recall-oriented confidence sweep or additional labeled frames.
 
@@ -211,25 +219,24 @@ With no fieldwork at all, the pipeline produces a crowding proxy in real time, a
 
 ## 5. Limitations
 
-1. **Uncalibrated geometry.** The m² scale is a frame-averaged effective
+1. Uncalibrated geometry. The m² scale is a frame-averaged effective
 value anchored to three hand-measured map polygons (±~7% anchor spread); perspective foreshortening means the error varies by position, and absolute accuracy is plausibly ±30%. A four-point homography from surveyed ground control would give true per-pixel areas.
-2. **Foot-point zoning** misclassifies people wading at the swash boundary
+2. Foot-point zoning misclassifies people wading at the swash boundary
 (feet in water, body on sand) and boardwalk pedestrians whose feet are cropped. Class-1 canopy pixels are folded into supervised classes by the ignore-index training setting.
-3. **Conf threshold 0.20** maximizes count sensitivity at some precision cost;
+3. Conf threshold 0.20 maximizes count sensitivity at some precision cost;
 no per-zone confidence sweep has been done yet.
-4. **Labels are narrow in time.** Segmentation labels cover only Nov 15–23,
+4. Labels are narrow in time. Segmentation labels cover only Nov 15–23,
 2025, yet the model holds up across the full 9.5-month deployment, which is itself evidence of robustness; detection webcam labels run Sep 2025–Mar
-   2026. Any future annotation round should evaluate on held-out **days**,
+   2026. Any future annotation round should evaluate on held-out days,
 not frames (adjacent frames leak).
-5. **Autocorrelation.** 15-min frames are far from independent; correlations
+5. Autocorrelation. 15-min frames are far from independent; correlations
 reported are descriptive, not significance-tested.
-6. **Weather station placement.** Lahaina WTP (station 0131, 244 m elevation)
+6. Weather station placement. Lahaina WTP (station 0131, 244 m elevation)
 is ~4 km inland and likely runs warmer/drier than the beach.
-7. **Frozen-stream frames.** 247 frames in 14 freeze events carry repeated
-images under successive timestamps and are dropped entirely. Their detections (6,435 boxes, 2.3% of the raw record) are excluded from all analysis.
-8. **Single camera, single beach.** Detection count ≠ people density per
+7. Livestream outages. The stream went down repeatedly: long capture gaps (up to roughly two weeks) where no frames exist, and 14 stuck-image events where one frozen frame was re-stamped under successive timestamps (247 frames, dropped entirely). Their detections (6,435 boxes, 2.3% of the raw record) are excluded from all analysis.
+8. Single camera, single beach. Detection count ≠ people density per
 shoreline meter; occlusion and perspective compression bias counts at the far (Black Rock) end.
-9. **Point-in-time sampling.** Each 15-minute frame is a single snapshot, so the record undercounts people present only between captures and overcounts those who remain in view across several frames; the figures describe occupancy per sampling instant, not total beach visits.
+9. Point-in-time sampling. Each 15-minute frame is a single snapshot, so the record undercounts people present only between captures and overcounts those who remain in view across several frames; the figures describe occupancy per sampling instant, not total beach visits.
 
 ## 6. Conclusion and future work
 
